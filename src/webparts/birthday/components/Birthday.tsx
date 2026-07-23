@@ -25,14 +25,41 @@ export default function Birthday(props: IBirthdayProps): React.ReactElement {
   const [loading, setLoading] = useState<boolean>(true);
   const [apiError, setApiError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Automatically expand the current calendar month by default
-    const currentMonthName = MONTHS[new Date().getMonth()];
-    setExpandedMonths({ [currentMonthName]: true });
-    
-    fetchBirthdays();
-  }, []);
+  // 1. Déclarer groupUsersByMonth en premier pour le linter (no-use-before-define)
+  const groupUsersByMonth = (users: IBirthdayUser[]): void => {
+    const initialGroups: IGroupedBirthdays = {};
+    MONTHS.forEach(month => { initialGroups[month] = []; });
 
+    users.forEach(user => {
+      if (!user.Birthday) return;
+      let monthIndex = -1;
+
+      const dateObj = new Date(user.Birthday);
+      if (!isNaN(dateObj.getTime())) {
+        monthIndex = dateObj.getMonth();
+      } else {
+        const lowerBirthday = user.Birthday.toLowerCase();
+        monthIndex = MONTHS.findIndex(m => lowerBirthday.includes(m.toLowerCase()));
+      }
+
+      if (monthIndex >= 0 && monthIndex < 12) {
+        const monthName = MONTHS[monthIndex];
+        initialGroups[monthName].push(user);
+      }
+    });
+
+    Object.keys(initialGroups).forEach(month => {
+      initialGroups[month].sort((a, b) => {
+        const dayA = new Date(a.Birthday).getDate() || 0;
+        const dayB = new Date(b.Birthday).getDate() || 0;
+        return dayA - dayB;
+      });
+    });
+
+    setGroupedBirthdays(initialGroups);
+  };
+
+  // 2. Déclarer fetchBirthdays ensuite
   const fetchBirthdays = async (): Promise<void> => {
     try {
       setApiError(null);
@@ -65,39 +92,14 @@ export default function Birthday(props: IBirthdayProps): React.ReactElement {
     }
   };
 
-  const groupUsersByMonth = (users: IBirthdayUser[]): void => {
-    const initialGroups: IGroupedBirthdays = {};
-    MONTHS.forEach(month => { initialGroups[month] = []; });
-
-    users.forEach(user => {
-      if (!user.Birthday) return;
-      let monthIndex = -1;
-
-      const dateObj = new Date(user.Birthday);
-      if (!isNaN(dateObj.getTime())) {
-        monthIndex = dateObj.getMonth();
-      } else {
-        const lowerBirthday = user.Birthday.toLowerCase();
-        monthIndex = MONTHS.findIndex(m => lowerBirthday.includes(m.toLowerCase()));
-      }
-
-      if (monthIndex >= 0 && monthIndex < 12) {
-        const monthName = MONTHS[monthIndex];
-        initialGroups[monthName].push(user);
-      }
-    });
-
-    // Sort internal users inside each month by calendar day numerical order
-    Object.keys(initialGroups).forEach(month => {
-      initialGroups[month].sort((a, b) => {
-        const dayA = new Date(a.Birthday).getDate() || 0;
-        const dayB = new Date(b.Birthday).getDate() || 0;
-        return dayA - dayB;
-      });
-    });
-
-    setGroupedBirthdays(initialGroups);
-  };
+  // 3. Utiliser le useEffect à la fin des définitions et ajouter l'opérateur void (no-floating-promises)
+  useEffect(() => {
+    const currentMonthName = MONTHS[new Date().getMonth()];
+    setExpandedMonths({ [currentMonthName]: true });
+    
+    // Le préfixe void indique de manière sécurisée au linter que la promesse s'exécute de manière isolée
+    void fetchBirthdays();
+  }, []);
 
   const toggleMonth = (month: string): void => {
     setExpandedMonths(prev => ({ ...prev, [month]: !prev[month] }));
@@ -163,7 +165,7 @@ export default function Birthday(props: IBirthdayProps): React.ReactElement {
                   <span className={styles.countBadge}>{usersInMonth.length}</span>
                 )}
               </div>
-              <span className={styles.iconArrow}>{isExpanded ? '⚡' : '✨'}</span>
+              <span className={styles.iconArrow}>{isExpanded ? '▼' : '►'}</span>
             </button>
             
             {isExpanded && (
@@ -224,5 +226,6 @@ export default function Birthday(props: IBirthdayProps): React.ReactElement {
     </div>
   );
 }
+
 
 
