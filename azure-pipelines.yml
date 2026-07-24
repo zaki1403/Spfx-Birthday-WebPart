@@ -4,7 +4,7 @@ trigger:
 variables:
   - group: 'SPFx-Deployment-Variables'
   - name: 'sharepoint_site_url'
-    value: 'https://sharepoint.com' # CHANGE to your App Catalog URL
+    value: 'https://tns05.sharepoint.com/sites/ProjectManagement/AppCatalog' # CHANGE to your App Catalog URL
 
 stages:
   # =========================================================================
