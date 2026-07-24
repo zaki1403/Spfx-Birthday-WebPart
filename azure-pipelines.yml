@@ -108,7 +108,7 @@ stages:
 
           # Login to SharePoint using the App Registration, Certificate, and Secret Variables
           - script: |
-              m365 login --authType certificate --clientId "$(spfx_client_id)" --tenant "$(spfx_tenant_id)" --certificateFile "$(spfxCertFile.secureFilePath)" --password "$(spfx_cert_password)"
+              m365 login --authtype certificate --clientid "$(spfx_client_id)" --tenant "$(spfx_tenant_id)" --certificateFile "$(spfxCertFile.secureFilePath)" --password "$(spfx_cert_password)"
             displayName: 'Authenticate with SharePoint via Entra App Registration'
 
           # Uploads using your dynamically evaluated name
