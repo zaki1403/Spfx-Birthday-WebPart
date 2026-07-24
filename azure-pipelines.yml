@@ -1,0 +1,122 @@
+trigger:
+  - main
+
+variables:
+  - group: 'SPFx-Deployment-Variables'
+  - name: 'sharepoint_site_url'
+    value: 'https://sharepoint.com' # CHANGE to your App Catalog URL
+
+stages:
+  # =========================================================================
+  # 1. CI STAGE: Versioning & Building with HEFT (Node.js 22)
+  # =========================================================================
+  - stage: BuildStage
+    displayName: 'CI - Build SPFx Package'
+    jobs:
+      - job: BuildJob
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          # Configured to use Node 22 to match your project engines definition
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '22.x'
+            displayName: 'Install Node.js 22'
+
+          # Your Auto-Increment Version Script
+          - script: |
+              node -e "
+              const fs = require('fs');
+              const path = './config/package-solution.json';
+              
+              const data = JSON.parse(fs.readFileSync(path, 'utf8'));
+              
+              const currentVersion = data.solution.version || '1.0.0.0';
+              const versionParts = currentVersion.split('.');
+              const major = versionParts[0] || '1';
+              const minor = versionParts[1] || '0';
+              
+              const azureBuildId = '$(Build.BuildId)';
+              data.solution.version = \`\${major}.\${minor}.\${azureBuildId}.0\`;
+              
+              fs.writeFileSync(path, JSON.stringify(data, null, 2));
+              console.log('Successfully updated SPFx solution version to: ' + data.solution.version);
+              "
+            displayName: 'Auto-Increment Solution Version'
+
+          - script: npm ci
+            displayName: 'Install dependencies (npm ci)'
+
+          # HEFT Build Commands for Production (Matches your package.json scripts)
+          - script: npx heft test --clean --production
+            displayName: 'Heft Build & Test (Production)'
+
+          - script: npx heft package-solution --production
+            displayName: 'Heft Package Solution (Production)'
+
+          # Your Dynamic *.sppkg Name Finder Script
+          - script: |
+              CMD_GET_SPPKG_NAME=$(find ./sharepoint/solution -name "*.sppkg" -exec basename {} \;)
+              echo "Found package filename: $CMD_GET_SPPKG_NAME"
+              echo "##vso[task.setvariable variable=SpPkgFileName;isOutput=true]$CMD_GET_SPPKG_NAME"
+            displayName: Get generated *.sppkg filename
+            name: GetSharePointPackage
+
+          - task: PublishPipelineArtifact@1
+            inputs:
+              targetPath: '$(Build.Repository.LocalPath)/sharepoint/solution'
+              artifact: 'drop'
+              publishLocation: 'pipeline'
+            displayName: 'Publish Package Artifact'
+
+  # =========================================================================
+  # 2. CD STAGE: Automated Deployment to SharePoint
+  # =========================================================================
+  - stage: DeployStage
+    displayName: 'CD - Deploy to SharePoint'
+    dependsOn: BuildStage
+    condition: succeeded()
+    variables:
+      # This captures the dynamic filename from the Build stage across the pipeline barrier
+      DynamicSpPkgName: $[ stageDependencies.BuildStage.BuildJob.outputs['GetSharePointPackage.SpPkgFileName'] ]
+    jobs:
+      - job: DeployJob
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: DownloadPipelineArtifact@2
+            inputs:
+              buildType: 'current'
+              artifactName: 'drop'
+              targetPath: '$(Pipeline.Workspace)/drop'
+            displayName: 'Download Package Artifact'
+
+          # Downloads your secure .pfx file from Azure DevOps Library
+          - task: DownloadSecureFile@1
+            name: spfxCertFile
+            inputs:
+              secureFile: 'SPFxPipeline.pfx'
+            displayName: 'Download PFX Certificate File'
+
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '22.x'
+            displayName: 'Install Node.js 22 for Deployment'
+
+          - script: npm install -g @pnp/cli-microsoft365
+            displayName: 'Install CLI for Microsoft 365'
+
+          # Login to SharePoint using the App Registration, Certificate, and Secret Variables
+          - script: |
+              m365 login --authType certificate --clientId "$(spfx_client_id)" --tenant "$(spfx_tenant_id)" --certificateFile "$(spfxCertFile.secureFilePath)" --password "$(spfx_cert_password)"
+            displayName: 'Authenticate with SharePoint via Entra App Registration'
+
+          # Uploads using your dynamically evaluated name
+          - script: |
+              m365 spo app add --filePath "$(Pipeline.Workspace)/drop/$(DynamicSpPkgName)" --scope tenant --overwrite
+            displayName: 'Upload Package to App Catalog'
+
+          # Deploys using your dynamically evaluated name
+          - script: |
+              m365 spo app deploy --id "$(DynamicSpPkgName)" --scope tenant
+            displayName: 'Deploy and Activate SPFx Package'
