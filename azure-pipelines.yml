@@ -108,7 +108,7 @@ stages:
 
           # Login to SharePoint using the App Registration, Certificate, and Secret Variables
           - script: |
-              m365 login --authtype certificate --clientid "$(spfx_client_id)" --tenant "$(spfx_tenant_id)" --certificateFile "$(spfxCertFile.secureFilePath)" --password "$(spfx_cert_password)"
+              m365 login --authtype certificate --clientid "$(spfx_client_id)" --tenant "$(spfx_tenant_id)" --certificatefile "$(spfxCertFile.secureFilePath)" --password "$(spfx_cert_password)"
             displayName: 'Authenticate with SharePoint via Entra App Registration'
 
           # Uploads using your dynamically evaluated name
@@ -118,5 +118,5 @@ stages:
 
           # Deploys using your dynamically evaluated name
           - script: |
-              m365 spo app deploy --id "$(DynamicSpPkgName)" --scope tenant
+              m365 spo app deploy --id a12ddfbf-7a16-4747-aa63-96d3f891c27c --scope tenant
             displayName: 'Deploy and Activate SPFx Package'
