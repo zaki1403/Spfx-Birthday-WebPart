@@ -4,7 +4,7 @@ trigger:
 variables:
   - group: 'SPFx-Deployment-Variables'
   - name: 'sharepoint_site_url'
-    value: 'https://tns05.sharepoint.com/sites/ProjectManagement/AppCatalog' # CHANGE to your App Catalog URL
+    value: 'https://tns05.sharepoint.com/sites/ProjectManagement/AppCatalog'
 
 stages:
   # =========================================================================
@@ -17,13 +17,12 @@ stages:
         pool:
           vmImage: 'ubuntu-latest'
         steps:
-          # Configured to use Node 22 to match your project engines definition
           - task: NodeTool@0
             inputs:
               versionSpec: '22.x'
             displayName: 'Install Node.js 22'
 
-          # Your Auto-Increment Version Script
+          # Auto-Increment Version Script
           - script: |
               node -e "
               const fs = require('fs');
@@ -47,14 +46,13 @@ stages:
           - script: npm ci
             displayName: 'Install dependencies (npm ci)'
 
-          # HEFT Build Commands for Production (Matches your package.json scripts)
           - script: npx heft test --clean --production
             displayName: 'Heft Build & Test (Production)'
 
           - script: npx heft package-solution --production
             displayName: 'Heft Package Solution (Production)'
 
-          # Your Dynamic *.sppkg Name Finder Script
+          # Dynamic *.sppkg Name Finder Script
           - script: |
               CMD_GET_SPPKG_NAME=$(find ./sharepoint/solution -name "*.sppkg" -exec basename {} \;)
               echo "Found package filename: $CMD_GET_SPPKG_NAME"
@@ -77,7 +75,6 @@ stages:
     dependsOn: BuildStage
     condition: succeeded()
     variables:
-      # This captures the dynamic filename from the Build stage across the pipeline barrier
       DynamicSpPkgName: $[ stageDependencies.BuildStage.BuildJob.outputs['GetSharePointPackage.SpPkgFileName'] ]
     jobs:
       - job: DeployJob
@@ -91,7 +88,6 @@ stages:
               targetPath: '$(Pipeline.Workspace)/drop'
             displayName: 'Download Package Artifact'
 
-          # Downloads your secure .pfx file from Azure DevOps Library
           - task: DownloadSecureFile@1
             name: spfxCertFile
             inputs:
@@ -106,17 +102,23 @@ stages:
           - script: npm install -g @pnp/cli-microsoft365
             displayName: 'Install CLI for Microsoft 365'
 
-          # Login to SharePoint using the App Registration, Certificate, and Secret Variables
+          # Authentification robuste sans plantage d'arguments via variables d'environnement
           - script: |
-              m365 login --auth-type certificate --tenant "$(spfx_tenant_id)" --client-id "$(spfx_client_id)" --certificate-file "$(spfxCertFile.secureFilePath)" --password "$(spfx_cert_password)"
+              m365 login
             displayName: 'Authenticate with SharePoint via Entra App Registration'
+            env:
+              M365_AUTH_TYPE: 'certificate'
+              M365_TENANT_ID: '$(spfx_tenant_id)'
+              M365_CLIENT_ID: '$(spfx_client_id)'
+              M365_CERTIFICATE_FILE: '$(spfxCertFile.secureFilePath)'
+              M365_CERTIFICATE_PASSWORD: '$(spfx_cert_password)'
 
-          # Uploads using your dynamically evaluated name
+          # Téléversement vers le catalogue d'applications ciblé par l'URL
           - script: |
-              m365 spo app add --filePath "$(Pipeline.Workspace)/drop/$(DynamicSpPkgName)" --scope tenant --overwrite
+              m365 spo app add --filePath "$(Pipeline.Workspace)/drop/$(DynamicSpPkgName)" --appCatalogUrl "$(sharepoint_site_url)" --scope sitecollection --overwrite
             displayName: 'Upload Package to App Catalog'
 
-          # Deploys using your dynamically evaluated name
+          # Déploiement et activation de l'ID exact
           - script: |
-              m365 spo app deploy --id a12ddfbf-7a16-4747-aa63-96d3f891c27c --scope tenant
+              m365 spo app deploy --id a12ddfbf-7a16-4747-aa63-96d3f891c27c --appCatalogUrl "$(sharepoint_site_url)" --scope sitecollection
             displayName: 'Deploy and Activate SPFx Package'
