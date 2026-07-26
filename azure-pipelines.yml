@@ -4,7 +4,7 @@ trigger:
 variables:
   - group: 'SPFx-Deployment-Variables'
   - name: 'sharepoint_site_url'
-    value: 'https://tns05.sharepoint.com/sites/ProjectManagement/AppCatalog'
+    value: 'https://tns05.sharepoint.com/sites/ProjectManagement'
 
 stages:
   # =========================================================================
