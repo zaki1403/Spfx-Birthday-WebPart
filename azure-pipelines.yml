@@ -104,14 +104,8 @@ stages:
 
           # Authentification robuste sans plantage d'arguments via variables d'environnement
           - script: |
-              m365 login
+              m365 login --authType certificate --appId "$(spfx_client_id)" --tenant "$(spfx_tenant_id)" --certificateFile "$(spfxCertFile.secureFilePath)" --password "$(spfx_cert_password)"
             displayName: 'Authenticate with SharePoint via Entra App Registration'
-            env:
-              M365_AUTH_TYPE: 'certificate'
-              M365_TENANT_ID: '$(spfx_tenant_id)'
-              M365_CLIENT_ID: '$(spfx_client_id)'
-              M365_CERTIFICATE_FILE: '$(spfxCertFile.secureFilePath)'
-              M365_CERTIFICATE_PASSWORD: '$(spfx_cert_password)'
 
           # Téléversement vers le catalogue d'applications ciblé par l'URL
           - script: |
