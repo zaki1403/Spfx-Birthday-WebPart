@@ -109,10 +109,10 @@ stages:
 
           # Téléversement vers le catalogue d'applications ciblé par l'URL
           - script: |
-              m365 spo app add --filePath "$(Pipeline.Workspace)/drop/$(DynamicSpPkgName)" --appCatalogUrl "$(sharepoint_site_url)" --scope sitecollection --overwrite
+              m365 spo app add --filePath "$(Pipeline.Workspace)/drop/$(DynamicSpPkgName)" --appCatalogUrl "$(sharepoint_site_url)" --appCatalogScope sitecollection --overwrite
             displayName: 'Upload Package to App Catalog'
 
           # Déploiement et activation de l'ID exact
           - script: |
-              m365 spo app deploy --id a12ddfbf-7a16-4747-aa63-96d3f891c27c --appCatalogUrl "$(sharepoint_site_url)" --scope sitecollection
+              m365 spo app deploy --id a12ddfbf-7a16-4747-aa63-96d3f891c27c --appCatalogUrl "$(sharepoint_site_url)" --appCatalogScope sitecollection
             displayName: 'Deploy and Activate SPFx Package'
