@@ -102,17 +102,22 @@ stages:
           - script: npm install -g @pnp/cli-microsoft365
             displayName: 'Install CLI for Microsoft 365'
 
-          # Authentification robuste sans plantage d'arguments via variables d'environnement
+          # 1. Authenticate with SharePoint via Entra App Registration
           - script: |
               m365 login --authType certificate --appId "$(spfx_client_id)" --tenant "$(spfx_tenant_id)" --certificateFile "$(spfxCertFile.secureFilePath)" --password "$(spfx_cert_password)"
             displayName: 'Authenticate with SharePoint via Entra App Registration'
 
-          # Téléversement vers le catalogue d'applications ciblé par l'URL
+          # 2. CRITICAL FIX: Explicitly set the SharePoint root/admin context
+          - script: |
+              m365 spo set --url "$(sharepoint_site_url)"
+            displayName: 'Set SharePoint Context URL'
+
+          # 3. Upload Package to the Site Collection App Catalog
           - script: |
               m365 spo app add --filePath "$(Pipeline.Workspace)/drop/$(DynamicSpPkgName)" --appCatalogUrl "$(sharepoint_site_url)" --appCatalogScope sitecollection --overwrite
             displayName: 'Upload Package to App Catalog'
 
-          # Déploiement et activation de l'ID exact
+          # 4. Deploy and activate the package
           - script: |
               m365 spo app deploy --id a12ddfbf-7a16-4747-aa63-96d3f891c27c --appCatalogUrl "$(sharepoint_site_url)" --appCatalogScope sitecollection
             displayName: 'Deploy and Activate SPFx Package'
