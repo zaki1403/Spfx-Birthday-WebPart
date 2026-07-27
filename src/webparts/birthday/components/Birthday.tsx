@@ -137,7 +137,7 @@ export default function Birthday(props: IBirthdayProps): React.ReactElement {
   return (
     <div className={styles.birthdayWebPart}>
       <div className={styles.headerSection}>
-        <div className={styles.headerIcon}>🎁</div>
+        <div className={styles.headerIcon}>🎂</div>
         <div>
           <h2 className={styles.title}>Company Birthdays</h2>
           <p className={styles.subtitle}>Celebrate and connect with your colleagues on their special day</p>
